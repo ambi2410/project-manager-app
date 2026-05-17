@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projekt- und Aufgabenmanagement</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="top-bar">
+            <div>
+                <h1>Projekt- und Aufgabenmanagement</h1>
+                <p>Angemeldet als <strong>{{ current_user['username'] }}</strong> ({{ current_user['role'] }})</p>
+            </div>
+            <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+        </header>
+
+        {% if current_user['role'] == 'admin' %}
+        <section class="form-section">
+            <div class="form-card">
+                <h2>Benutzerkonto anlegen</h2>
+                <form method="POST">
+                    <input type="text" name="new_username" placeholder="Benutzername" required>
+                    <input type="text" name="new_password" placeholder="Passwort" required>
+                    <select name="new_role" required>
+                        <option value="admin">admin</option>
+                        <option value="projektleiter">projektleiter</option>
+                        <option value="mitarbeiter">mitarbeiter</option>
+                        <option value="benutzer">benutzer</option>
+                    </select>
+                    <button type="submit">Benutzer anlegen</button>
+                </form>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if current_user['role'] in ['admin', 'projektleiter'] %}
+        <section class="form-section">
+            <div class="form-card">
+                <h2>Neues Projekt</h2>
+                <form method="POST">
+                    <input type="text" name="project_name" placeholder="Projektname eingeben" required>
+
+                    {% if current_user['role'] == 'admin' %}
+                    <select name="leader_id">
+                        <option value="">Projektleiter wählen</option>
+                        {% for user in users %}
+                            {% if user['role'] in ['admin', 'projektleiter'] %}
+                                <option value="{{ user['id'] }}">{{ user['username'] }} ({{ user['role'] }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+
+                    <button type="submit">Projekt hinzufügen</button>
+                </form>
+            </div>
+
+            <div class="form-card">
+                <h2>Neue Aufgabe</h2>
+                <form method="POST">
+                    <input type="text" name="task_title" placeholder="Aufgabe eingeben" required>
+
+                    <select name="project_id" required>
+                        {% for project in active_projects %}
+                            {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id or current_user['role'] == 'mitarbeiter' %}
+                                <option value="{{ project.id }}">{{ project.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+
+                    <select name="assigned_user_id">
+                        <option value="">Aufgabe niemandem zuweisen</option>
+                        {% for user in users %}
+                            <option value="{{ user['id'] }}">{{ user['username'] }} ({{ user['role'] }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit">Aufgabe hinzufügen</button>
+                </form>
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="projects-section">
+            <h2>Aktive Projekte</h2>
+
+            {% if active_projects %}
+                {% for project in active_projects %}
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <h3>{{ project.name }}</h3>
+                            <p class="progress-text">Projektleiter: {{ project.leader_name }}</p>
+                            <p class="progress-text">Fortschritt: {{ project.done_tasks }} von {{ project.total_tasks }} Aufgaben erledigt</p>
+                        </div>
+                        <span class="progress-badge">{{ project.progress }}%</span>
+                    </div>
+
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ project.progress }}%;"></div>
+                    </div>
+
+                    {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id %}
+                    <div class="edit-row">
+                        <form method="POST" class="inline-form grow">
+                            <input type="hidden" name="edit_project_id" value="{{ project.id }}">
+                            <input type="text" name="new_project_name" placeholder="Projektname bearbeiten" required>
+                            <button type="submit" class="small-btn">Bearbeiten</button>
+                        </form>
+
+                        <form method="POST">
+                            <input type="hidden" name="archive_project_id" value="{{ project.id }}">
+                            <button type="submit" class="archive-btn">Archivieren</button>
+                        </form>
+
+                        {% if current_user['role'] == 'admin' %}
+                        <form method="POST">
+                            <input type="hidden" name="delete_project_id" value="{{ project.id }}">
+                            <button type="submit" class="delete-btn">Löschen</button>
+                        </form>
+                        {% endif %}
+                    </div>
+
+                    <div class="member-box">
+                        <h4>Mitarbeiter zuordnen</h4>
+                        <form method="POST" class="inline-form">
+                            <input type="hidden" name="assign_member_project_id" value="{{ project.id }}">
+                            <select name="assign_member_user_id" required>
+                                <option value="">Benutzer auswählen</option>
+                                {% for user in users %}
+                                    {% if user['role'] in ['mitarbeiter', 'benutzer'] %}
+                                        <option value="{{ user['id'] }}">{{ user['username'] }} ({{ user['role'] }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="small-btn">Zuordnen</button>
+                        </form>
+                    </div>
+
+                    <div class="member-list-box">
+                        <h4>Zugeordnete Mitarbeiter</h4>
+                        {% if project.members %}
+                            <ul class="member-list">
+                                {% for member in project.members %}
+                                <li class="member-item">
+                                    <span>{{ member['username'] }}</span>
+                                    <form method="POST">
+                                        <input type="hidden" name="remove_member_project_id" value="{{ project.id }}">
+                                        <input type="hidden" name="remove_member_user_id" value="{{ member['user_id'] }}">
+                                        <button type="submit" class="delete-btn">Entfernen</button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="empty-state">Noch keine Mitarbeiter zugeordnet.</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <ul class="task-list">
+                        {% if project.tasks %}
+                            {% for task in project.tasks %}
+                            <li class="task-item">
+                                <div class="task-main">
+                                    <div class="task-line">
+                                        <span class="task-title">{{ task['title'] }}</span>
+                                        <span class="status {{ 'done' if task['status'] == 'erledigt' else 'open' }}">{{ task['status'] }}</span>
+                                    </div>
+
+                                    <p class="progress-text">Zugewiesen an: {{ task['assigned_username'] }}</p>
+
+                                    {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id or current_user['role'] == 'mitarbeiter' %}
+                                    <form method="POST" class="inline-form grow">
+                                        <input type="hidden" name="edit_task_id" value="{{ task['id'] }}">
+                                        <input type="text" name="new_task_title" placeholder="Aufgabe bearbeiten" required>
+                                        <button type="submit" class="small-btn">Bearbeiten</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+
+                                <div class="task-actions">
+                                    {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id %}
+                                    <form method="POST" class="inline-form">
+                                        <input type="hidden" name="assign_task_id" value="{{ task['id'] }}">
+                                        <select name="assign_task_user_id">
+                                            <option value="">Niemand</option>
+                                            {% for user in users %}
+                                                <option value="{{ user['id'] }}"
+                                                    {% if task['assigned_user_id'] == user['id'] %}selected{% endif %}>
+                                                    {{ user['username'] }} ({{ user['role'] }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="submit" class="small-btn">Zuweisen</button>
+                                    </form>
+                                    {% endif %}
+
+                                    {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id or current_user['role'] == 'mitarbeiter' %}
+                                    <form method="POST">
+                                        <input type="hidden" name="toggle_task_id" value="{{ task['id'] }}">
+                                        <button type="submit" class="small-btn">Status ändern</button>
+                                    </form>
+                                    {% endif %}
+
+                                    {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id %}
+                                    <form method="POST">
+                                        <input type="hidden" name="delete_task_id" value="{{ task['id'] }}">
+                                        <button type="submit" class="delete-btn">Löschen</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="empty-state">Keine Aufgaben vorhanden.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="project-card">
+                    <p class="empty-state">Keine aktiven Projekte sichtbar.</p>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="projects-section">
+            <h2>Archivierte Projekte</h2>
+
+            {% if archived_projects %}
+                {% for project in archived_projects %}
+                <div class="project-card archived-card">
+                    <div class="project-header">
+                        <div>
+                            <h3>{{ project.name }}</h3>
+                            <p class="progress-text">Projektleiter: {{ project.leader_name }}</p>
+                            <p class="progress-text">Archiviert</p>
+                        </div>
+                        <span class="progress-badge">{{ project.progress }}%</span>
+                    </div>
+
+                    {% if current_user['role'] == 'admin' or current_user['id'] == project.leader_id %}
+                    <form method="POST">
+                        <input type="hidden" name="unarchive_project_id" value="{{ project.id }}">
+                        <button type="submit" class="small-btn">Wiederherstellen</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="project-card">
+                    <p class="empty-state">Keine archivierten Projekte vorhanden.</p>
+                </div>
+            {% endif %}
+        </section>
+    </div>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container login-page">
+        <div class="form-card login-card">
+            <h1>Login</h1>
+            <p>Melde dich mit einem Testkonto an.</p>
+
+            {% if error %}
+                <p class="error-message">{{ error }}</p>
+            {% endif %}
+
+            <form method="POST">
+                <input type="text" name="username" placeholder="Benutzername" required>
+                <input type="password" name="password" placeholder="Passwort" required>
+                <button type="submit">Anmelden</button>
+            </form>
+
+            <div class="info-box">
+                <p><strong>Testkonten:</strong></p>
+                <p>admin / admin</p>
+                <p>leiter / leiter</p>
+                <p>mitarbeiter / mitarbeiter</p>
+                <p>benutzer / benutzer</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
