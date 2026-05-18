@@ -36,6 +36,7 @@ python app.py
 - Admin: admin / admin
 - Leiter: leiter / leiter
 - Mitarbeiter: mitarbeiter / mitarbeiter
+- Benutzer: benutzer / benutzer
 
 ## Projektstruktur
 
